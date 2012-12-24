@@ -10,8 +10,10 @@ assert(jit, "LuaJIT 2.0.0+ only")
 
 --------------------------------------------------------------------------------
 
--- TODO: HACK!
-package.path = "src/lua/?.lua;" .. package.path
+if (...) ~= "--luarocks" then
+  -- Preferring working copy to luarocks tree.
+  package.path = "src/lua/?.lua;" .. package.path
+end
 
 --------------------------------------------------------------------------------
 
