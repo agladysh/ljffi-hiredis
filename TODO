@@ -1,6 +1,8 @@
 -- Decide on error handling policy for nonblocking_ffi_hiredis_connection
    connect.
 
+-- Decide if we *really* should close connection on *every* error.
+
 -- Write proper tests.
 
 -- Cleanup TODOs in the code.

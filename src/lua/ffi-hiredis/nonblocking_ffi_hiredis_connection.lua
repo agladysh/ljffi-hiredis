@@ -303,7 +303,13 @@ do
   local get_reply = function(self)
     method_arguments(self)
 
-    return get_reply_impl(get_connection(self))
+    local res, err = get_reply_impl(get_connection(self))
+    if res == nil then
+      self:close()
+      return nil, err
+    end
+
+    return res
   end
 
   -- Note that redisCommand is not used,
@@ -315,11 +321,13 @@ do
 
     local res, err = append_command_impl(conn, ...)
     if res == nil then
+      self:close()
       return nil, err
     end
 
     local res, err = get_reply_impl(conn)
     if res == nil then
+      self:close()
       return nil, err
     end
 
@@ -331,6 +339,7 @@ do
 
     local res, err = append_command_impl(get_connection(self), ...)
     if res == nil then
+      self:close()
       return nil, err
     end
 
