@@ -115,9 +115,10 @@ do
             "can't connect to", host, port, "error:", ffi.string(conn.errstr)
           )
         error("redisConnect failed: " .. ffi.string(conn.errstr))
+        -- Connection will be garbage collected.
       end
 
-      log("connected to", host, port)
+      log("connected to redis at", host, port)
 
       return conn
     end
@@ -188,8 +189,9 @@ do
     handle_reply = function(conn, reply)
       if reply == nil then
         if conn.err ~= 0 then
-          log_error("can't handle reply:", ffi.string(conn.errstr))
-          return nil, "hiredis error: " .. ffi.string(conn.errstr)
+          local err = "hiredis: can't handle reply: " .. ffi.string(conn.errstr)
+          log_error(err)
+          return nil, err
         end
 
         return HIREDIS_WOULD_BLOCK
@@ -230,8 +232,9 @@ do
       )
 
     if status ~= ffi_hiredis.REDIS_OK then
-      log_error("can't append command:", ffi.string(conn.errstr))
-      return nil, "hiredis error: " .. ffi.string(conn.errstr)
+      local err = "hiredis: can't append command: " .. ffi.string(conn.errstr)
+      log_error(err)
+      return nil, err
     end
 
     return true
@@ -252,8 +255,10 @@ do
         while done[0] == 0 do
           local status = ffi_hiredis.redisBufferWrite(conn, done)
           if status ~= ffi_hiredis.REDIS_OK then
-            log_error("can't write to buffer:", ffi.string(conn.errstr))
-            return nil, "hiredis error: " .. ffi.string(conn.errstr)
+            local err = "hiredis: can't write to buffer: "
+              .. ffi.string(conn.errstr)
+            log_error(err)
+            return nil, err
           end
         end
 
@@ -271,17 +276,21 @@ do
 
       local status = ffi_hiredis.redisBufferRead(conn)
       if status ~= ffi_hiredis.REDIS_OK then
-        log_error("can't read from buffer:", ffi.string(conn.errstr))
-        return nil, "hiredis error: " .. ffi.string(conn.errstr)
+        local err = "hiredis: can't read from buffer: "
+          .. ffi.string(conn.errstr)
+        log_error(err)
+        return nil, err
       end
 
       local reply_ptr = reply_ptr_t()
 
       local status = ffi_hiredis.redisGetReply(conn, reply_ptr)
       if status ~= ffi_hiredis.REDIS_OK then
-        -- No need to free reply object, it hasn't been initialized.
-        log_error("can't get reply:", ffi.string(conn.errstr))
-        return nil, "hiredis error: " .. ffi.string(conn.errstr)
+        -- Note: No need to free reply object, it hasn't been initialized.
+        local err = "hiredis: can't get reply: "
+          .. ffi.string(conn.errstr)
+        log_error(err)
+        return nil, err
       end
 
       return handle_reply(
@@ -309,13 +318,23 @@ do
       return nil, err
     end
 
-    return get_reply_impl(conn)
+    local res, err = get_reply_impl(conn)
+    if res == nil then
+      return nil, err
+    end
+
+    return res
   end
 
   local append_command = function(self, ...)
     method_arguments(self)
 
-    return append_command_impl(get_connection(self), ...)
+    local res, err = append_command_impl(get_connection(self), ...)
+    if res == nil then
+      return nil, err
+    end
+
+    return res
   end
 
   local get_fd = function(self)
@@ -329,11 +348,18 @@ do
     method_arguments(self)
 
     if self.conn_ ~= nil then
+      log("closing connection to redis at", self.host_, self.port_)
+
       -- Force connection collection
       ffi_hiredis.redisFree(self.conn_)
       ffi.gc(self.conn_, nil) -- We've just collected it, disable GC.
 
       self.conn_ = nil
+    else
+      log_error(
+          "can't close connection to redis at", self.host_, self.port_,
+          "(connection is not open)"
+        )
     end
   end
 
