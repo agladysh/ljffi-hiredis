@@ -154,47 +154,19 @@ local test = function()
     log("after fetch")
   end
 
-  log("forking")
-  local pid = syscall.fork()
-  if pid == 0 then
-    log("child")
-    log("child sleeping")
-    require 'socket'.sleep(3)
-    log("child sleept")
-    local conn = make_nonblocking_ffi_hiredis_connection("127.0.0.1", 6379)
-    log("child connected")
-    local data = conn:command("LPUSH", "FFI_HIREDIS", "DATA")
-    log("child data", data)
+  log("blocking on BLPOP on empty list")
 
-    if data == HIREDIS_WOULD_BLOCK then
-      log("child selecting on", conn:get_fd())
-      local fds = syscall.select({ readfds = { conn:get_fd() } })
-      log("child selected", fds)
+  local data = conn:command("BLPOP", "FFI_HIREDIS", 3)
+  log("data", data)
 
-      log("child fetching data")
-      log("child data is", conn:get_reply())
-      log("child after fetch")
-    end
+  assert(data == HIREDIS_WOULD_BLOCK)
+  log("selecting on", conn:get_fd())
+  local fds = syscall.select({ readfds = { conn:get_fd() } })
+  log("selected", fds)
 
-    log("leaving child")
-    os.exit(0, true)
-  else
-    log("parent, child's pid", pid)
-    log("blocking on BLPOP")
-
-    local data = conn:command("BLPOP", "FFI_HIREDIS", 0)
-    log("data", data)
-
-    if data == HIREDIS_WOULD_BLOCK then
-      log("selecting on", conn:get_fd())
-      local fds = syscall.select({ readfds = { conn:get_fd() } })
-      log("selected", fds)
-
-      log("fetching data")
-      log("data is", conn:get_reply())
-      log("after fetch")
-    end
-  end
+  log("fetching data")
+  log("data is", conn:get_reply())
+  log("after fetch")
 
   log("OK")
 end
