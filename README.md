@@ -8,8 +8,8 @@ Helpful links:
 https://github.com/redis/hiredis
 https://github.com/agladysh/lua-hiredis
 
-Built `libhiredis.so` is bundled for your convenience in `bin/hiredis/`.
-Put it to some place that `ffi.load("hiredis")` know about.
+Prebuilt `libhiredis.so` is bundled for your convenience in `bin/hiredis/`.
+Put it to some place that `ffi.load("hiredis")` knows about.
 
 Sorry, no further docs on this point. Read the source
 (start with `test/test.lua`).
